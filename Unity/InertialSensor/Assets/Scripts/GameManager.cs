@@ -9,6 +9,7 @@ public class GameManager : MonoBehaviour {
 
 	public SerialPort arduinoPort;
 	public Dropdown dpSerialPorts;
+	public Dropdown dpQntSensores;
 	public Slider slPhi;
 	public Slider slTheta;
 	public Slider slPsi;
@@ -19,20 +20,24 @@ public class GameManager : MonoBehaviour {
 	public Text textStatus;
 
 	public InputField AccelData;
-	public InputField GyroData;
+	public InputField GyroData;//novo
 
-	public Transform transformIMU;
-	public Vector3 imuEullerAngles;
+	public Transform transformIMUrwr;
+	public Transform transformIMUrel;
+	public Transform transformIMUtor;
+	public Transform transformIMUlwr;
+	public Transform transformIMUlel;
+
+	public Vector3 imuEulerAngles;
 
 
+	public List<Quaternion> imuQuat;
+	public List<Vector3> imuAccel;
+	public List<Vector3> imuGyro;
 
-	public Quaternion imuQuat;
-	public Vector3 imuAccel;
-	public Vector3 imuGyro;
-
-	public Quaternion oldimuQuat;
-	public Vector3 oldimuAccel;
-	public Vector3 oldimuGyro;
+	public List<Quaternion> oldimuQuat;
+	public List<Vector3> oldimuAccel;
+	public List<Vector3> oldimuGyro;
 
 	public Vector3 earthGravity;
 	public Vector3 actualAccel;
@@ -45,24 +50,44 @@ public class GameManager : MonoBehaviour {
 	public Mutex accessControl;
 
 	byte[] received_packet = new byte[20];
+	List<byte[]> sensor_packet;
 
-	public Queue<Vector3> accel_data;
-	public Queue<Vector3> gyro_data;
-	public Queue<Quaternion> quat_data;
+	public List<Queue<Vector3>> accel_data;
+	public List<Queue<Vector3>> gyro_data;
+	public List<Queue<Quaternion>> quat_data;
+
+	public int qnt_sensores = 1;
 
 	// Use this for initialization
 	void Start () {
-		quat_data = new Queue<Quaternion> (1024);
-		gyro_data = new Queue<Vector3> (1024);
-		accel_data = new Queue<Vector3> (1024);
+		sensor_packet = new List<byte[]> ();
+		quat_data = new List<Queue<Quaternion>>(5);
+		gyro_data = new List<Queue<Vector3>>(5);
+		accel_data = new List<Queue<Vector3>>(5);
 
+		imuQuat = new List<Quaternion> (5);
+		imuAccel = new List<Vector3> (5);
+		imuGyro = new List<Vector3> (5);
 
-		accel_values = new Queue<Vector3>();
-	 	imuEullerAngles = new Vector3();
-	 	earthGravity = new Vector3();
-	 	actualAccel = new Vector3();
-	 	imuQuat = new Quaternion();
-		oldimuQuat = new Quaternion ();
+		oldimuQuat = new List<Quaternion> (5);
+		oldimuAccel = new List<Vector3> (5);
+		oldimuGyro = new List<Vector3> (5);
+
+		for (int i = 0; i < 5; i++) {
+			quat_data.Add (new Queue<Quaternion> (255));
+			gyro_data.Add (new Queue<Vector3> (255));
+			accel_data.Add (new Queue<Vector3> (255));
+			imuQuat.Add (new Quaternion ());
+			imuAccel.Add (new Vector3 ());
+			imuGyro.Add (new Vector3 ());
+			oldimuQuat.Add (new Quaternion ());
+			oldimuAccel.Add (new Vector3 ());
+			oldimuGyro.Add (new Vector3 ());
+			sensor_packet.Add (new byte[8]);
+		}
+	
+
+	 	imuEulerAngles = new Vector3();
 
 		arduinoPort = new SerialPort("/dev/ttyS101", 115200);
 		arduinoPort.ReadTimeout = 100;
@@ -83,21 +108,56 @@ public class GameManager : MonoBehaviour {
 		
 		//Get Data
 		accessControl.WaitOne ();
-		textStatus.text = "Fifo Count: " + quat_data.Count.ToString ();
+		textStatus.text = "Fifo Count: " + quat_data[0].Count.ToString ();
 		//quat_data.Count 
-		while(quat_data.Count > 0) {
-			imuQuat = quat_data.Dequeue ();
-			imuAccel = accel_data.Dequeue ();
-			imuGyro = gyro_data.Dequeue ();
+		for (int i = 0; i < 5; i++) {
+			while (quat_data [i].Count > 0) {
+				imuQuat[i] = quat_data [i].Dequeue ();
+				imuAccel[i] = accel_data [i].Dequeue ();
+				imuGyro[i] = gyro_data [i].Dequeue ();
+			}
 		}
 		accessControl.ReleaseMutex ();
 
-		//Update Quaternion
-		if (imuQuat != oldimuQuat) {
-			oldimuQuat = imuQuat;
-			transformIMU.rotation = imuQuat;
-			updateSliders();
+
+		//Update Quaternions
+		if (qnt_sensores <= 1) {
+			if (imuQuat [0] != oldimuQuat [0]) {
+				oldimuQuat [0] = imuQuat [0];
+				transformIMUrwr.localRotation = imuQuat [0];
+				updateSliders ();
+			}
 		}
+		if (qnt_sensores <= 2) {
+			if (imuQuat [1] != oldimuQuat [1]) {
+				oldimuQuat [1] = imuQuat [1];
+				transformIMUrel.localRotation = imuQuat [4];
+				updateSliders ();
+			}
+		}
+
+		if (qnt_sensores <= 3) {
+			if (imuQuat [2] != oldimuQuat [2]) {
+				oldimuQuat [2] = imuQuat [2];
+				transformIMUtor.localRotation = imuQuat [2];
+				updateSliders ();
+			}
+		}
+		if (qnt_sensores <= 4) {
+			if (imuQuat [3] != oldimuQuat [3]) {
+				oldimuQuat [3] = imuQuat [3];
+				transformIMUlel.localRotation = imuQuat [3];
+				updateSliders ();
+			}
+		}
+		if (qnt_sensores <= 5) {
+			if (imuQuat [4] != oldimuQuat [4]) {
+				oldimuQuat [4] = imuQuat [4];
+				transformIMUlwr.localRotation = imuQuat [4];
+				updateSliders ();
+			}
+		}
+			
 		//Calulate Gyro AHRS
 
 	}
@@ -111,6 +171,10 @@ public class GameManager : MonoBehaviour {
 	}
 
 	private void readArduinoData(){
+		/*
+		 * UART_ST = 0x7F  			#Start transmission
+		 * UART_ET = 0x7E				#End transmission
+		*/
 		if (arduinoPort.BytesToRead > 0) {
 			if (arduinoPort.ReadByte () == '$') {
 				if (arduinoPort.Read (received_packet, 0, 20) == 20) {
@@ -120,16 +184,41 @@ public class GameManager : MonoBehaviour {
 				}
 			}
 		}
+		/*
+		int qnt_received = 0;
+		if (arduinoPort.BytesToRead > 0) {
+			if (arduinoPort.ReadByte () == 0x7F) {
+				for (int i = 0; i < 5; i++) {
+					qnt_received += arduinoPort.Read (sensor_packet[i], 0, 20)
+				}
+				if (qnt_received == 8*5) {
+					if (arduinoPort.ReadByte() == 0x7E) {
+						disassemblePacket ();
+					}
+				}
+			}
+		}*/
 	}
 
+
+	/*
+	Summary: Method for reading packages
+		Standard MPU6050 package contains:
+		Sensor data is read from DMP
+		1st byte: Start transmission = '$'
+			Next 8 bytes, each measure is composed by two bytes (MSB first)
+	Quaternion from sensor1 (w,x,y,z)
+		...
+		End Byte = '\n'
+	*/
 	public void disassemblePacket(){
 		Quaternion q = new Quaternion ();
 		Vector3 a = new Vector3 ();
 		Vector3 g = new Vector3 ();
 		q.w = (float) (received_packet [0] << 8 | received_packet [1]) / 16384.0f;
 		q.x = (float) (received_packet [2] << 8 | received_packet [3]) / 16384.0f;
-		q.y = (float) (received_packet [4] << 8 | received_packet [5]) / 16384.0f;
-		q.z = (float) (received_packet [6] << 8 | received_packet [7]) / 16384.0f;
+		q.z = (float) (received_packet [4] << 8 | received_packet [5]) / 16384.0f;
+		q.y = (float) (received_packet [6] << 8 | received_packet [7]) / 16384.0f;
 
 		q.w = q.w < 2? q.w:q.w-4;
 		q.x = q.x < 2? q.x:q.x-4;
@@ -153,10 +242,29 @@ public class GameManager : MonoBehaviour {
 		g.z = g.z < 250? g.z:g.z-500;
 
 		accessControl.WaitOne ();
-		quat_data.Enqueue (q);
-		accel_data.Enqueue (a);
-		gyro_data.Enqueue (g);
+		for (int i = 0; i < 5; i++) {
+			quat_data[i].Enqueue (q);
+			accel_data[i].Enqueue (a);
+			gyro_data[i].Enqueue (g);
+		}
 		accessControl.ReleaseMutex ();
+		/*
+		Quaternion q = new Quaternion ();
+		for (int i = 0; i < 5; i++) {
+			q.w = (float) (sensor_packet[i] [0] << 8 | sensor_packet[i] [1]) / 16384.0f;
+			q.x = (float) (sensor_packet[i] [2] << 8 | sensor_packet[i] [3]) / 16384.0f;
+			q.z = (float) (sensor_packet[i] [4] << 8 | sensor_packet[i] [5]) / 16384.0f;
+			q.y = (float) (sensor_packet[i] [6] << 8 | sensor_packet[i] [7]) / 16384.0f;
+			q.w = q.w < 2? q.w:q.w-4;
+			q.x = q.x < 2? q.x:q.x-4;
+			q.y = q.y < 2? q.y:q.y-4;
+			q.z = q.z < 2? q.z:q.z-4;
+			accessControl.WaitOne ();
+			quat_data[i].Enqueue (q);
+			accessControl.ReleaseMutex ();
+		}
+		*/
+
 	}
 
 	private void StartThread(){
@@ -241,16 +349,16 @@ public class GameManager : MonoBehaviour {
 		actualAccel = accel_values.Dequeue();
 		Debug.Log(Vector3.back);
 		Debug.Log(actualAccel.normalized);
-		imuQuat = Quaternion.FromToRotation(new Vector3(0.0f,0.0f,1.0f), actualAccel.normalized);
-		transformIMU.rotation = imuQuat;
+		imuQuat = Quaternion.FromTolocalRotation(new Vector3(0.0f,0.0f,1.0f), actualAccel.normalized);
+		transformIMUrwr.localRotation = imuQuat;
 		updateSliders();
 		*/
 	}
 	public void updateSliders(){
-		imuEullerAngles = transformIMU.rotation.eulerAngles;
-		slPhi.value = imuEullerAngles.x > 180 ? -360 + imuEullerAngles.x : imuEullerAngles.x;
-		slTheta.value =  imuEullerAngles.y > 180 ? -360 + imuEullerAngles.y : imuEullerAngles.y;
-		slPsi.value = imuEullerAngles.z > 180 ? -360 + imuEullerAngles.z : imuEullerAngles.z;
+		imuEulerAngles = transformIMUrwr.localRotation.eulerAngles;
+		slPhi.value = imuEulerAngles.x > 180 ? -360 + imuEulerAngles.x : imuEulerAngles.x;
+		slTheta.value =  imuEulerAngles.y > 180 ? -360 + imuEulerAngles.y : imuEulerAngles.y;
+		slPsi.value = imuEulerAngles.z > 180 ? -360 + imuEulerAngles.z : imuEulerAngles.z;
 	}
 
 	public void btnLoadData_Clicked(){
@@ -277,11 +385,11 @@ public class GameManager : MonoBehaviour {
 		Debug.Log("Slider Phi: " + slPhi.value.ToString());
 		Debug.Log("Slider Theta: " + slTheta.value.ToString());
 		Debug.Log("Slider Psi: " + slPsi.value.ToString());
-		imuEullerAngles.x = slPhi.value;
-		imuEullerAngles.y = slTheta.value;
-		imuEullerAngles.z = slPsi.value;
-		imuQuat = Quaternion.Euler(imuEullerAngles);
-		transformIMU.rotation = imuQuat;
+		imuEulerAngles.x = slPhi.value;
+		imuEulerAngles.y = slTheta.value;
+		imuEulerAngles.z = slPsi.value;
+		imuQuat[0] = Quaternion.Euler(imuEulerAngles);
+		transformIMUrwr.localRotation = imuQuat[0];
 
 	}
 	public void SlidersPhi_OnValueChanged(float sv){
@@ -295,6 +403,10 @@ public class GameManager : MonoBehaviour {
 	}
 	public void DropdownSerialPorts_OnValueChanged(int dp_idx){
 		Debug.Log("Seleção do Dropdown alterado para: " + dpSerialPorts.options[dpSerialPorts.value].text.ToString());
+	}
+	public void DropdownQntSensores_OnValueChanged(int dp_idx){
+		Debug.Log("Seleção do Dropdown alterado para: " + dpQntSensores.options[dpQntSensores.value].text.ToString());
+		qnt_sensores = dpQntSensores.value + 1;
 	}
 
 

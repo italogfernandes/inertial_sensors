@@ -6,7 +6,25 @@ Ferramentas e implementações úteis para o trabalho com sensores inerciais.
 Implementação de Algoritimos para calculo de orientação, assim como outras
 ferramentas para o estudo de sensores inerciais.
 
+* GY-521 com a MPU6050 (Unidade Inercial)
+![](/Docs/Pictures/GY-521.png)
+
+* Posicionamento dos sensores no corpo.
+![](/Docs/Pictures/Positions.png)
+
+* Interface com 1 Sensor inercial
+![](/Docs/Pictures/mainScene.png)
 ![](/Docs/Pictures/interface.gif)
+
+* Interface com sistema de rastreamento do corpo humano
+![](/Docs/Pictures/BetaScene.png)
+![](/Docs/Pictures/interface_beta.gif)
+
+* Representação do corpo.
+![](/Docs/Pictures/BodyJoints.png)
+![](/Docs/Pictures/body_model.png)
+![](/Docs/Pictures/position.png)
+![](/Docs/Pictures/characterWalking.gif)
 
 ### In this repository
 
