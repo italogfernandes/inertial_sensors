@@ -1,0 +1,139 @@
+﻿using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+using System.IO.Ports;
+
+public class GameManager : MonoBehaviour {
+
+	public SerialPort arduinoPort;
+	public Dropdown dpSerialPorts;
+	public Slider slPhi;
+	public Slider slTheta;
+	public Slider slPsi;
+	public Text textPhi;
+	public Text textTheta;
+	public Text textPsi;
+	
+	public InputField AccelData;
+	public InputField GyroData;
+	
+	public Transform transformIMU;
+	
+	public Vector3 imuEullerAngles;
+	public Quaternion imuQuat;
+	
+	public Vector3 earthGravity;
+	public Vector3 actualAccel;
+	
+	public Queue<Vector3> accel_values;
+	
+	
+	// Use this for initialization
+	void Start () {
+		accel_values = new Queue<Vector3>();
+		
+	 	imuEullerAngles = new Vector3();
+	 	earthGravity = new Vector3();
+	 	actualAccel = new Vector3();
+	 	
+	 	imuQuat = new Quaternion();
+		arduinoPort = new SerialPort("/dev/ttyS101", 115200);
+		//populateSerialPorts();
+		SlidersPhi_OnValueChanged(0.0f);SlidersTheta_OnValueChanged(0.0f);SlidersPsi_OnValueChanged(0.0f);
+	}
+	
+	// Update is called once per frame
+	void Update () {
+		
+	}
+	
+	private void populateSerialPorts(){
+		//dpSerialPorts.AddOptions(SerialPort.GetPortNames());
+		foreach (var available_serial_port in SerialPort.GetPortNames()){
+            Debug.Log(available_serial_port);
+        }
+
+	}
+	
+	public void btnConnect_Clicked(){
+		Debug.Log("Botão Conectar Clicado.");
+		Debug.Log("Porta Serial: " + arduinoPort.PortName.ToString());
+		Debug.Log("BaudRate: " + arduinoPort.BaudRate.ToString());
+		arduinoPort.Open();
+		if(arduinoPort.IsOpen){
+			Debug.Log("Sucesso.");
+		} else {
+			Debug.Log("Erro.");
+		}
+	
+	}
+	public void btnStart_Clicked(){
+		Debug.Log("Botão Start Clicado.");
+	
+	}
+	public void btnStop_Clicked(){
+		Debug.Log("Botão Stop Clicado.");
+	
+	}
+	
+	public void btnStep_Clicked(){
+		Debug.Log("Botão Step Clicado.");
+		actualAccel = accel_values.Dequeue();
+		Debug.Log(Vector3.back);
+		Debug.Log(actualAccel.normalized);
+		imuQuat = Quaternion.FromToRotation(new Vector3(0.0f,0.0f,1.0f), actualAccel.normalized);
+		transformIMU.rotation = imuQuat;
+		updateSliders();
+	}
+	public void updateSliders(){
+		imuEullerAngles = transformIMU.rotation.eulerAngles;
+		slPhi.value = imuEullerAngles.x;
+		slTheta.value =  imuEullerAngles.y;
+		slPsi.value = imuEullerAngles.z;
+	}
+	
+	public void btnLoadData_Clicked(){
+		Debug.Log("Botão Carregar Clicado.");
+		string[] linhas = AccelData.text.Split('\n');
+		foreach(var linha_de_dados in linhas){
+			//Debug.Log(linha_de_dados);
+			string[] vector_values = linha_de_dados.Split();
+			if(vector_values.Length == 3){
+				Vector3 parsing_result = new Vector3();
+				parsing_result.x = float.Parse(vector_values[0]);
+				parsing_result.y = float.Parse(vector_values[1]);
+				parsing_result.z = float.Parse(vector_values[2]);
+				accel_values.Enqueue(parsing_result);
+			}
+		}
+		Debug.Log(accel_values.Count);
+	}
+	
+	public void btnRotate_Clicked(){
+		Debug.Log("Botão Rotate Clicado.");
+		Debug.Log("Slider Phi: " + slPhi.value.ToString());
+		Debug.Log("Slider Theta: " + slTheta.value.ToString());
+		Debug.Log("Slider Psi: " + slPsi.value.ToString());
+		imuEullerAngles.x = slPhi.value;
+		imuEullerAngles.y = slTheta.value;
+		imuEullerAngles.z = slPsi.value;
+		imuQuat = Quaternion.Euler(imuEullerAngles);
+		transformIMU.rotation = imuQuat;
+		
+	}
+	public void SlidersPhi_OnValueChanged(float sv){
+		textPhi.text = "Phi: " + slPhi.value.ToString("F2") + " graus.";
+	}
+	public void SlidersTheta_OnValueChanged(float sv){
+		textTheta.text = "Theta: " + slTheta.value.ToString("F2") + " graus.";
+	}
+	public void SlidersPsi_OnValueChanged(float sv){
+		textPsi.text = "Psi: " + slPsi.value.ToString("F2") + " graus.";
+	}
+	public void DropdownSerialPorts_OnValueChanged(int dp_idx){
+		Debug.Log("Seleção do Dropdown alterado para: " + dpSerialPorts.options[dpSerialPorts.value].text.ToString());
+	}
+	
+
+}
