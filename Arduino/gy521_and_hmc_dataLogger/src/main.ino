@@ -32,7 +32,7 @@
    Para visualizar de forma legivel ao ser humano
    Altere o comentario em: #define DEBUG_MODE
 */
-//#define DEBUG_MODE
+#define DEBUG_MODE
 
 //Se estiver no modo debug printa as msg debug, se nao estiver nao printa
 #ifdef DEBUG_MODE
@@ -40,7 +40,7 @@
 #endif
 
 #ifndef DEBUG_MODE
-#define DEBUG_PRINT_(x)
+//#define DEBUG_PRINT_(x)
 #endif
 
 #include "Timer.h"                     //http://github.com/JChristensen/Timer

@@ -43,7 +43,7 @@
 #define DEBUG_PRINT_(x) Serial.print(x)
 #endif
 #ifndef DEBUG_MODE
-#define DEBUG_PRINT_(x)
+//#define DEBUG_PRINT_(x)
 #endif
 
 #ifdef ARDUINO_DUE
@@ -87,7 +87,7 @@ bool aquisition_running = false;
 
 //Variaveis Inercial
 MPU6050 mpu(0x68);
-const int offsets[6] = { 684, 1628, 1963, 35, -41, 7};
+const int offsets[6] = {  673, 1641, 1956, 36, -40, 6};
 uint8_t fifoBuffer[42]; // FIFO storage fifoBuffer of mpu
 int numbPackets;
 
@@ -151,6 +151,30 @@ void loop() {
 //Sensor Inercial //
 ////////////////////
 
+/***
+New functions:
+
+bool getTempFIFOEnabled();
+void setTempFIFOEnabled(bool enabled);
+
+bool getSlave0FIFOEnabled();
+void setSlave0FIFOEnabled(bool enabled);
+
+// I2C_MST_CTRL register
+bool getMultiMasterEnabled();
+void setMultiMasterEnabled(bool enabled);
+bool getWaitForExternalSensorEnabled();
+void setWaitForExternalSensorEnabled(bool enabled);
+bool getSlave3FIFOEnabled();
+void setSlave3FIFOEnabled(bool enabled);
+bool getSlaveReadWriteTransitionEnabled();
+void setSlaveReadWriteTransitionEnabled(bool enabled);
+uint8_t getMasterClockSpeed();
+void setMasterClockSpeed(uint8_t speed);
+
+
+
+**/
 void iniciar_sensor_inercial() {
   if (mpu.testConnection()) {
     mpu.initialize(); //Initializes the IMU
