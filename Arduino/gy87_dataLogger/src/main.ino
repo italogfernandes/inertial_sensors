@@ -172,6 +172,45 @@ void setSlaveReadWriteTransitionEnabled(bool enabled);
 uint8_t getMasterClockSpeed();
 void setMasterClockSpeed(uint8_t speed);
 
+// I2C_SLV* registers (Slave 0-3)
+uint8_t getSlaveAddress(uint8_t num);
+void setSlaveAddress(uint8_t num, uint8_t address);
+uint8_t getSlaveRegister(uint8_t num);
+void setSlaveRegister(uint8_t num, uint8_t reg);
+bool getSlaveEnabled(uint8_t num);
+void setSlaveEnabled(uint8_t num, bool enabled);
+bool getSlaveWordByteSwap(uint8_t num);
+void setSlaveWordByteSwap(uint8_t num, bool enabled);
+bool getSlaveWriteMode(uint8_t num);
+void setSlaveWriteMode(uint8_t num, bool mode);
+bool getSlaveWordGroupOffset(uint8_t num);
+void setSlaveWordGroupOffset(uint8_t num, bool enabled);
+uint8_t getSlaveDataLength(uint8_t num);
+void setSlaveDataLength(uint8_t num, uint8_t length);
+
+// I2C_MST_STATUS register
+bool getPassthroughStatus();
+bool getSlave4IsDone();
+bool getLostArbitration();
+bool getSlave4Nack();
+bool getSlave3Nack();
+bool getSlave2Nack();
+bool getSlave1Nack();
+bool getSlave0Nack();
+
+
+// setup AK8975 (0x0E) as Slave 0 in read mode
+DEBUG_PRINTLN(F("Setting up AK8975 read slave 0..."));
+I2Cdev::writeByte(0x68, MPU6050_RA_I2C_SLV0_ADDR, 0x8E);
+I2Cdev::writeByte(0x68, MPU6050_RA_I2C_SLV0_REG,  0x01);
+I2Cdev::writeByte(0x68, MPU6050_RA_I2C_SLV0_CTRL, 0xDA);
+
+// setup AK8975 (0x0E) as Slave 2 in write mode
+DEBUG_PRINTLN(F("Setting up AK8975 write slave 2..."));
+I2Cdev::writeByte(0x68, MPU6050_RA_I2C_SLV2_ADDR, 0x0E);
+I2Cdev::writeByte(0x68, MPU6050_RA_I2C_SLV2_REG,  0x0A);
+I2Cdev::writeByte(0x68, MPU6050_RA_I2C_SLV2_CTRL, 0x81);
+I2Cdev::writeByte(0x68, MPU6050_RA_I2C_SLV2_DO,   0x01);
 
 
 **/
