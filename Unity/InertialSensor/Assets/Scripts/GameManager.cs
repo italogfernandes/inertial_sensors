@@ -56,12 +56,15 @@ public class GameManager : MonoBehaviour {
 	public List<Queue<Vector3>> gyro_data;
 	public List<Queue<Quaternion>> quat_data;
 
+	public List<Quaternion> offset_quat;
+
 	public int qnt_sensores = 1;
 
 	// Use this for initialization
 	void Start () {
 		sensor_packet = new List<byte[]> ();
 		quat_data = new List<Queue<Quaternion>>(5);
+		offset_quat = new List<Quaternion>(5);
 		gyro_data = new List<Queue<Vector3>>(5);
 		accel_data = new List<Queue<Vector3>>(5);
 
@@ -84,12 +87,13 @@ public class GameManager : MonoBehaviour {
 			oldimuAccel.Add (new Vector3 ());
 			oldimuGyro.Add (new Vector3 ());
 			sensor_packet.Add (new byte[8]);
+			offset_quat.Add (Quaternion.identity);
 		}
 	
 
 	 	imuEulerAngles = new Vector3();
 
-		arduinoPort = new SerialPort("/dev/ttyS101", 115200);
+		arduinoPort = new SerialPort("/dev/ttyS102", 115200);
 		arduinoPort.ReadTimeout = 100;
 		arduinoPort.ReadBufferSize = 4096;
 
@@ -113,47 +117,72 @@ public class GameManager : MonoBehaviour {
 		for (int i = 0; i < 5; i++) {
 			while (quat_data [i].Count > 0) {
 				imuQuat[i] = quat_data [i].Dequeue ();
-				imuAccel[i] = accel_data [i].Dequeue ();
-				imuGyro[i] = gyro_data [i].Dequeue ();
+				//imuAccel[i] = accel_data [i].Dequeue ();
+				//imuGyro[i] = gyro_data [i].Dequeue ();
 			}
 		}
 		accessControl.ReleaseMutex ();
 
 
 		//Update Quaternions
-		if (qnt_sensores <= 1) {
+		if (qnt_sensores == 1) {
 			if (imuQuat [0] != oldimuQuat [0]) {
 				oldimuQuat [0] = imuQuat [0];
-				transformIMUrwr.localRotation = imuQuat [0];
+				transformIMUrwr.localRotation = imuQuat [0]* new Quaternion(
+					-offset_quat [0].x,
+					-offset_quat [0].y,
+					-offset_quat [0].z,
+					offset_quat [0].w);
+				transformIMUrwr.localRotation = Quaternion.Euler(
+					transformIMUrwr.localRotation.eulerAngles.x,
+					-transformIMUrwr.localRotation.eulerAngles.y,
+					-transformIMUrwr.localRotation.eulerAngles.z
+				);
 				updateSliders ();
 			}
 		}
-		if (qnt_sensores <= 2) {
+		if (qnt_sensores >= 2) {
 			if (imuQuat [1] != oldimuQuat [1]) {
 				oldimuQuat [1] = imuQuat [1];
-				transformIMUrel.localRotation = imuQuat [4];
+				transformIMUrel.localRotation = imuQuat [1]* new Quaternion(
+					-offset_quat [1].x,
+					-offset_quat [1].y,
+					-offset_quat [1].z,
+					offset_quat [1].w);
 				updateSliders ();
 			}
 		}
 
-		if (qnt_sensores <= 3) {
+		if (qnt_sensores >= 3) {
 			if (imuQuat [2] != oldimuQuat [2]) {
 				oldimuQuat [2] = imuQuat [2];
-				transformIMUtor.localRotation = imuQuat [2];
+				transformIMUtor.localRotation = imuQuat [3]* new Quaternion(
+					-offset_quat [4].x,
+					-offset_quat [4].y,
+					-offset_quat [4].z,
+					offset_quat [4].w);
 				updateSliders ();
 			}
 		}
-		if (qnt_sensores <= 4) {
+		if (qnt_sensores >= 4) {
 			if (imuQuat [3] != oldimuQuat [3]) {
 				oldimuQuat [3] = imuQuat [3];
-				transformIMUlel.localRotation = imuQuat [3];
+				transformIMUlel.localRotation = imuQuat [2]* new Quaternion(
+					-offset_quat [2].x,
+					-offset_quat [2].y,
+					-offset_quat [2].z,
+					offset_quat [2].w);
 				updateSliders ();
 			}
 		}
-		if (qnt_sensores <= 5) {
+		if (qnt_sensores >= 5) {
 			if (imuQuat [4] != oldimuQuat [4]) {
 				oldimuQuat [4] = imuQuat [4];
-				transformIMUlwr.localRotation = imuQuat [4];
+				transformIMUlwr.localRotation = imuQuat [4]* new Quaternion(
+					-offset_quat [3].x,
+					-offset_quat [3].y,
+					-offset_quat [3].z,
+					offset_quat [3].w);
 				updateSliders ();
 			}
 		}
@@ -175,6 +204,7 @@ public class GameManager : MonoBehaviour {
 		 * UART_ST = 0x7F  			#Start transmission
 		 * UART_ET = 0x7E				#End transmission
 		*/
+		/*
 		if (arduinoPort.BytesToRead > 0) {
 			if (arduinoPort.ReadByte () == '$') {
 				if (arduinoPort.Read (received_packet, 0, 20) == 20) {
@@ -184,20 +214,20 @@ public class GameManager : MonoBehaviour {
 				}
 			}
 		}
-		/*
+		*/
 		int qnt_received = 0;
 		if (arduinoPort.BytesToRead > 0) {
-			if (arduinoPort.ReadByte () == 0x7F) {
+			if (arduinoPort.ReadByte () == '$') {
 				for (int i = 0; i < 5; i++) {
-					qnt_received += arduinoPort.Read (sensor_packet[i], 0, 20)
+					qnt_received += arduinoPort.Read (sensor_packet[i], 0, 8);
 				}
-				if (qnt_received == 8*5) {
-					if (arduinoPort.ReadByte() == 0x7E) {
+				if (qnt_received == 40) {
+					if (arduinoPort.ReadByte() == '\n') {
 						disassemblePacket ();
 					}
 				}
 			}
-		}*/
+		}
 	}
 
 
@@ -212,6 +242,7 @@ public class GameManager : MonoBehaviour {
 		End Byte = '\n'
 	*/
 	public void disassemblePacket(){
+		/*
 		Quaternion q = new Quaternion ();
 		Vector3 a = new Vector3 ();
 		Vector3 g = new Vector3 ();
@@ -248,13 +279,13 @@ public class GameManager : MonoBehaviour {
 			gyro_data[i].Enqueue (g);
 		}
 		accessControl.ReleaseMutex ();
-		/*
+		*/
 		Quaternion q = new Quaternion ();
 		for (int i = 0; i < 5; i++) {
 			q.w = (float) (sensor_packet[i] [0] << 8 | sensor_packet[i] [1]) / 16384.0f;
-			q.x = (float) (sensor_packet[i] [2] << 8 | sensor_packet[i] [3]) / 16384.0f;
-			q.z = (float) (sensor_packet[i] [4] << 8 | sensor_packet[i] [5]) / 16384.0f;
-			q.y = (float) (sensor_packet[i] [6] << 8 | sensor_packet[i] [7]) / 16384.0f;
+			q.z = (-1.0f) * (float) (sensor_packet[i] [2] << 8 | sensor_packet[i] [3]) / 16384.0f;
+			q.x = (float) (sensor_packet[i] [4] << 8 | sensor_packet[i] [5]) / 16384.0f;
+			q.z = (float) (sensor_packet[i] [6] << 8 | sensor_packet[i] [7]) / 16384.0f;
 			q.w = q.w < 2? q.w:q.w-4;
 			q.x = q.x < 2? q.x:q.x-4;
 			q.y = q.y < 2? q.y:q.y-4;
@@ -263,8 +294,6 @@ public class GameManager : MonoBehaviour {
 			quat_data[i].Enqueue (q);
 			accessControl.ReleaseMutex ();
 		}
-		*/
-
 	}
 
 	private void StartThread(){
@@ -408,6 +437,23 @@ public class GameManager : MonoBehaviour {
 		Debug.Log("Seleção do Dropdown alterado para: " + dpQntSensores.options[dpQntSensores.value].text.ToString());
 		qnt_sensores = dpQntSensores.value + 1;
 	}
+	public void btnSetOffset_Clicked(){
+		offset_quat [0] = transformIMUrwr.rotation;
+		offset_quat [1] = transformIMUrel.rotation;
+		offset_quat [2] = transformIMUlel.rotation;
+		offset_quat [3] = transformIMUlwr.rotation;
+		offset_quat [4] = transformIMUtor.rotation;
 
+		for (int i = 0; i < 5; i++) {
+			offset_quat[i] = offset_quat[i] * Quaternion.identity;
+		}
+		/*
+		newRot = quaternion.product(_quaternion,quaternion.conjugate(self.quaternion))
+			self.quaternion = quaternion.product(_quaternion,quaternion.conjugate(self.quaternion_offset))
+			self.rotquaternion = self.quaternion
+		*/
+		//quaternion.product(_quaternion, quaternion.conjugate(quat_desejado))
+
+	}
 
 }
