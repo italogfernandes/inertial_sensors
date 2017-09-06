@@ -1,0 +1,7 @@
+".\Objects\sensor.obj",
+".\Objects\hal_delay.obj",
+".\Objects\hal_uart.obj",
+".\Objects\hal_w2_isr.obj" 
+TO ".\Objects\sensor_project" 
+PRINT(".\Listings\sensor_project.m51") RAMSIZE(256) 
+DISABLEWARNING (16) 
