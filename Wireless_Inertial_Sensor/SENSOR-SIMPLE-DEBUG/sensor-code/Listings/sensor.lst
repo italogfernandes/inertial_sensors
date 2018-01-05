@@ -1,0 +1,182 @@
+C51 COMPILER V9.55   SENSOR                                                                09/05/2017 20:13:48 PAGE 1   
+
+
+C51 COMPILER V9.55, COMPILATION OF MODULE SENSOR
+OBJECT MODULE PLACED IN .\Objects\sensor.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE sensor.c OPTIMIZE(8,SPEED) BROWSE INCDIR(..\..\libraries;C:\Nordic Semic
+                    -onductor\nRFgo SDK 2.3.0.10040\source_code\hal\nrf24le1;C:\Nordic Semiconductor\nRFgo SDK 2.3.0.10040\source_code\compil
+                    -er\common;C:\Nordic Semiconductor\nRFgo SDK 2.3.0.10040\source_code\compiler;C:\Nordic Semiconductor\nRFgo SDK 2.3.0.100
+                    -40\source_code\hal;C:\Nordic Semiconductor\nRFgo SDK 2.3.0.10040\source_code\compiler\c51) DEBUG OBJECTEXTEND PRINT(.\Li
+                    -stings\sensor.lst) TABS(2) OBJECT(.\Objects\sensor.obj)
+
+line level    source
+
+   1          #include "nrf24le1.h"
+   2          #include "reg24le1.h"
+   3          #include "nRF-SPIComands.h"
+   4          #include "hal_w2_isr.h" 
+   5          #include "hal_delay.h"
+   6          #include "timer0.h"
+   7          
+   8          //Subenderecos usados no sistema
+   9          #define HMC_endereco      0x1E //Endereco I2C do HMC5883(Magnetometro):
+  10          #define MPU_endereco      0x68 //Endereco I2C do MPU6050
+  11          
+  12          #define MPU6050_RA_ACCEL_XOUT_H 0x3B
+  13          #define MPU6050_RA_PWR_MGMT_1   0x6B
+  14          #define MPU6050_RA_XA_OFFS_H        0x06 //[15:0] XA_OFFS
+  15          #define MPU6050_RA_XA_OFFS_L_TC     0x07
+  16          #define MPU6050_RA_YA_OFFS_H        0x08 //[15:0] YA_OFFS
+  17          #define MPU6050_RA_YA_OFFS_L_TC     0x09
+  18          #define MPU6050_RA_ZA_OFFS_H        0x0A //[15:0] ZA_OFFS
+  19          #define MPU6050_RA_ZA_OFFS_L_TC     0x0B
+  20          #define MPU6050_RA_XG_OFFS_USRH     0x13 //[15:0] XG_OFFS_USR
+  21          #define MPU6050_RA_XG_OFFS_USRL     0x14
+  22          #define MPU6050_RA_YG_OFFS_USRH     0x15 //[15:0] YG_OFFS_USR
+  23          #define MPU6050_RA_YG_OFFS_USRL     0x16
+  24          #define MPU6050_RA_ZG_OFFS_USRH     0x17 //[15:0] ZG_OFFS_USR
+  25          #define MPU6050_RA_ZG_OFFS_USRL     0x18
+  26          #define MPU6050_RA_INT_PIN_CFG 0x37
+  27          #define MPU6050_INTCFG_I2C_BYPASS_EN_BIT 1
+  28          
+  29          #define STATUS_LED P02
+  30          
+  31          uint8_t mpu6050_buffer[14];
+  32          uint8_t hmc_buffer[14];
+  33          uint8_t hmc_start_byte = 0x03;
+  34          ////////////////////////
+  35          //Functions in Sensor //
+  36          ////////////////////////
+  37          
+  38          void configurarSensores();
+  39          void DataAcq();
+  40          void send_dada_read();
+  41          void sendString(const char* msg, uint8_t msglen);
+  42          ///////////////////
+  43          //Implementation //
+  44          ///////////////////
+  45          
+  46          /**
+  47          * Seta os pinos do nrf como saidas e entradas de acordo com as funcoes desejadas
+  48          */
+  49          void iniciarIO(void){
+  50   1          P0DIR = 0x00; P1DIR = 0x00; // Tudo input
+  51   1          P0CON = 0x00; P1CON = 0x00; //Reseting PxCON registers
+C51 COMPILER V9.55   SENSOR                                                                09/05/2017 20:13:48 PAGE 2   
+
+  52   1          P0DIR &= ~(1<<4);//P04 = w2scl = output
+  53   1          P0DIR &= ~(1<<2);//P02 = Status led = output
+  54   1          P1CON |= 0x53; // All general I/O 0101 0011
+  55   1      }
+  56          
+  57          
+  58          void setup(){
+  59   1          iniciarIO(); //Entradas e Saidas
+  60   1          rf_init(ADDR_HOST,ADDR_HOST,30,RF_DATA_RATE_2Mbps,RF_TX_POWER_0dBm); //RF Channel
+  61   1          hal_w2_configure_master(HAL_W2_100KHZ); //I2C
+  62   1          configurarSensores();//MPU_6050 and HMC5883
+  63   1          setup_T0_freq(200,1);
+  64   1          start_T0();
+  65   1          STATUS_LED = 1; //Acende o Led
+  66   1      }
+  67          
+  68          void main(void) {
+  69   1          setup();
+  70   1          while(1){ //Loop
+  71   2            if(timer_elapsed){
+  72   3              timer_elapsed = 0;
+  73   3              DataAcq();
+  74   3              send_dada_read();
+  75   3            }
+  76   2            //delay_ms(500);
+  77   2          }/*END LOOP*/
+  78   1      }/*END MAIN*/
+  79          
+  80          ///////////////////////
+  81          //FUNCIONS in Sensor //
+  82          ///////////////////////
+  83          
+  84          void configurarSensores(){
+  85   1        //Starting MPU6050
+  86   1        i2c_mpu_writeByte(MPU_endereco, MPU6050_RA_PWR_MGMT_1, 0x00);
+  87   1        sendString("MPU6050 Iniciada", 16); delay_ms(100);
+  88   1        //Offsets
+  89   1        i2c_mpu_writeWord(MPU_endereco, MPU6050_RA_XA_OFFS_H,   -257);
+  90   1        i2c_mpu_writeWord(MPU_endereco, MPU6050_RA_YA_OFFS_H,  -1477);
+  91   1        i2c_mpu_writeWord(MPU_endereco, MPU6050_RA_ZA_OFFS_H,   2176);
+  92   1        i2c_mpu_writeWord(MPU_endereco, MPU6050_RA_XG_OFFS_USRH,  59);
+  93   1        i2c_mpu_writeWord(MPU_endereco, MPU6050_RA_YG_OFFS_USRH,  15);
+  94   1        i2c_mpu_writeWord(MPU_endereco, MPU6050_RA_ZG_OFFS_USRH,  -9);
+  95   1        sendString("Offsets Setados", 15); delay_ms(100);
+  96   1        //Set I2C ByPass na mpu
+  97   1        i2c_mpu_writeBit(MPU_endereco, MPU6050_RA_INT_PIN_CFG, MPU6050_INTCFG_I2C_BYPASS_EN_BIT, 1);
+  98   1        sendString("ByPass Setado", 13); delay_ms(100);
+  99   1        //Starting HMC5883
+ 100   1        i2c_mpu_writeByte(HMC_endereco, 0x02, 0x00);
+ 101   1        sendString("HMC5883 Iniciado", 16); delay_ms(100);
+ 102   1      }
+ 103          
+ 104          
+ 105          void DataAcq(){
+ 106   1          i2c_mpu_readBytes(MPU_endereco, MPU6050_RA_ACCEL_XOUT_H, 14, mpu6050_buffer);
+ 107   1          hal_w2_write(HMC_endereco,&hmc_start_byte,1);hal_w2_read(HMC_endereco,hmc_buffer,6);
+ 108   1      }
+ 109          
+ 110          
+ 111          void send_dada_read(){
+ 112   1          tx_buf[ 0] = mpu6050_buffer[0];
+ 113   1          tx_buf[ 1] = mpu6050_buffer[1];
+C51 COMPILER V9.55   SENSOR                                                                09/05/2017 20:13:48 PAGE 3   
+
+ 114   1          tx_buf[ 2] = mpu6050_buffer[2];
+ 115   1          tx_buf[ 3] = mpu6050_buffer[3];
+ 116   1          tx_buf[ 4] = mpu6050_buffer[4];
+ 117   1          tx_buf[ 5] = mpu6050_buffer[5];
+ 118   1          
+ 119   1          tx_buf[ 6] = mpu6050_buffer[8];
+ 120   1          tx_buf[ 7] = mpu6050_buffer[9];
+ 121   1          tx_buf[ 8] = mpu6050_buffer[10];
+ 122   1          tx_buf[ 9] = mpu6050_buffer[11];
+ 123   1          tx_buf[10] = mpu6050_buffer[12];
+ 124   1          tx_buf[11] = mpu6050_buffer[13];
+ 125   1      
+ 126   1          tx_buf[12] = hmc_buffer[0];
+ 127   1          tx_buf[13] = hmc_buffer[1];
+ 128   1          tx_buf[14] = hmc_buffer[4];
+ 129   1          tx_buf[15] = hmc_buffer[5];
+ 130   1          tx_buf[16] = hmc_buffer[2];
+ 131   1          tx_buf[17] = hmc_buffer[3];
+ 132   1          
+ 133   1          tx_buf[18] = mpu6050_buffer[6];
+ 134   1          tx_buf[19] = mpu6050_buffer[7];
+ 135   1          
+ 136   1          TX_Mode_NOACK(20);
+ 137   1          RX_Mode();
+ 138   1      }
+ 139          
+ 140          void sendString(const char* msg, uint8_t msglen){
+ 141   1        uint8_t i = 0;
+ 142   1        for(i = 0; i < msglen; i++){
+ 143   2          tx_buf[i] = msg[i];
+ 144   2        }
+ 145   1        TX_Mode_NOACK(msglen);
+ 146   1        RX_Mode();
+ 147   1      }
+ 148          //interrupção do I2C - ?
+ 149          void I2C_IRQ (void) interrupt INTERRUPT_SERIAL {
+ 150   1          I2C_IRQ_handler();
+ 151   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1117    ----
+   CONSTANT SIZE    =     69    ----
+   XDATA SIZE       =     65    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     35      25
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      1    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

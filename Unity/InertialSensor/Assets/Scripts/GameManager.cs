@@ -343,7 +343,7 @@ public class GameManager : MonoBehaviour {
 			}
 
 		} else {
-			arduinoPort.PortName = dpSerialPorts.options[dpSerialPorts.value].text.ToString();
+            arduinoPort.PortName = dpSerialPorts.options[dpSerialPorts.value].text.ToString();
 			Debug.Log ("Conectando a Porta Serial: " 
 				+ arduinoPort.PortName.ToString() 
 				+ "|BaudRate: " 
@@ -351,6 +351,7 @@ public class GameManager : MonoBehaviour {
 			try {
 				arduinoPort.Open ();
 				textConnect.text = "Desconectar";
+                Debug.Log(arduinoPort.ReadExisting().ToString());
 			} catch (System.Exception ex) {
 				Debug.Log ("Erro: " + ex.ToString ());
 			}
