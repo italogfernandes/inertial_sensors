@@ -1,0 +1,26 @@
+0	Tempo
+1	# Equipamento
+2	Acceleration X
+3	AccelerationY
+4	AccelerationZ
+5	Angular VelocityX
+6	Angular VelocityY
+7	Angular VelocityZ
+8	AngleX
+9	AngleY
+10	AngleZ
+11	Magnetic FieldX
+12	Magnetic FieldY
+13	Magnetic FieldZ
+14	Temperature
+15	Depth
+16	Air Pressure
+17	Height
+18	Quaternion0
+19	Quaternion1
+20	Quaternion2
+21	Quaternion3
+22	Port0
+23	Port1
+24	Port2
+25	Port3
